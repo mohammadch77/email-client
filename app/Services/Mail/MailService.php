@@ -117,4 +117,171 @@ class MailService
 
         return $message;
     }
+
+    public function reply(EmailAccount $account, Message $original, array $data): Message
+    {
+        $replyData = [
+            'subject' => 'Re: '.ltrim(
+                preg_replace('/^re:\s*/i', '', $original->subject ?? ''),
+                ' '
+            ),
+            'body_html' => $data['body_html'] ?? null,
+            'body_text' => $data['body_text'] ?? null,
+            'in_reply_to' => $original->message_id_header,
+            'references' => trim(
+                ($original->references ?? '').' '.
+                ($original->message_id_header ?? '')
+            ),
+            'to' => [[
+                'email' => $original->from_email,
+                'name' => $original->from_name ?? '',
+            ]],
+        ];
+
+        return $this->sendMessage($account, $replyData);
+    }
+
+    public function replyAll(EmailAccount $account, Message $original, array $data): Message
+    {
+        $originalTo = $original->recipients
+            ->where('type', 'to')
+            ->where('email', '!=', $account->email)
+            ->map(fn ($r) => ['email' => $r->email, 'name' => $r->name])
+            ->toArray();
+
+        $replyAllData = [
+            'subject' => 'Re: '.ltrim(
+                preg_replace('/^re:\s*/i', '', $original->subject ?? ''),
+                ' '
+            ),
+            'body_html' => $data['body_html'] ?? null,
+            'body_text' => $data['body_text'] ?? null,
+            'in_reply_to' => $original->message_id_header,
+            'references' => trim(
+                ($original->references ?? '').' '.
+                ($original->message_id_header ?? '')
+            ),
+            'to' => array_merge(
+                [['email' => $original->from_email, 'name' => $original->from_name ?? '']],
+                $originalTo
+            ),
+            'cc' => $original->recipients
+                ->where('type', 'cc')
+                ->where('email', '!=', $account->email)
+                ->map(fn ($r) => ['email' => $r->email, 'name' => $r->name])
+                ->toArray(),
+        ];
+
+        return $this->sendMessage($account, $replyAllData);
+    }
+
+    public function forward(EmailAccount $account, Message $original, array $data): Message
+    {
+        $fwdData = [
+            'subject' => 'Fwd: '.ltrim(
+                preg_replace('/^fwd?:\s*/i', '', $original->subject ?? ''),
+                ' '
+            ),
+            'body_html' => $data['body_html'] ?? null,
+            'body_text' => $data['body_text'] ?? null,
+            'to' => $data['to'] ?? [],
+            'cc' => $data['cc'] ?? [],
+        ];
+
+        return $this->sendMessage($account, $fwdData);
+    }
+
+    public function saveDraft(EmailAccount $account, array $data): Message
+    {
+        $draftsFolder = $account->folders()
+            ->where('type', 'drafts')
+            ->first();
+
+        if (! $draftsFolder) {
+            $draftsFolder = $account->folders()->create([
+                'name' => 'Drafts',
+                'type' => 'drafts',
+                'imap_name' => 'Drafts',
+            ]);
+        }
+
+        $draft = Message::create([
+            'email_account_id' => $account->id,
+            'folder_id' => $draftsFolder->id,
+            'from_email' => $account->email,
+            'from_name' => $account->display_name,
+            'subject' => $data['subject'] ?? null,
+            'body_html' => $data['body_html'] ?? null,
+            'body_text' => $data['body_text'] ?? null,
+            'in_reply_to' => $data['in_reply_to'] ?? null,
+            'references' => $data['references'] ?? null,
+            'status' => 'draft',
+        ]);
+
+        foreach (($data['to'] ?? []) as $r) {
+            $draft->recipients()->create([
+                'type' => 'to',
+                'email' => $r['email'],
+                'name' => $r['name'] ?? null,
+            ]);
+        }
+        foreach (($data['cc'] ?? []) as $r) {
+            $draft->recipients()->create([
+                'type' => 'cc',
+                'email' => $r['email'],
+                'name' => $r['name'] ?? null,
+            ]);
+        }
+
+        return $draft;
+    }
+
+    public function updateDraft(Message $draft, array $data): Message
+    {
+        if ($draft->status !== 'draft') {
+            throw new \InvalidArgumentException('Message is not a draft');
+        }
+
+        $draft->update([
+            'subject' => $data['subject'] ?? $draft->subject,
+            'body_html' => $data['body_html'] ?? $draft->body_html,
+            'body_text' => $data['body_text'] ?? $draft->body_text,
+        ]);
+
+        return $draft->fresh();
+    }
+
+    public function deleteDraft(Message $draft): void
+    {
+        if ($draft->status !== 'draft') {
+            throw new \InvalidArgumentException('Message is not a draft');
+        }
+
+        $draft->delete();
+    }
+
+    public function sendDraft(EmailAccount $account, Message $draft): Message
+    {
+        if ($draft->status !== 'draft') {
+            throw new \InvalidArgumentException('Message is not a draft');
+        }
+
+        $data = [
+            'subject' => $draft->subject,
+            'body_html' => $draft->body_html,
+            'body_text' => $draft->body_text,
+            'to' => $draft->recipients
+                ->where('type', 'to')
+                ->map(fn ($r) => ['email' => $r->email, 'name' => $r->name])
+                ->toArray(),
+            'cc' => $draft->recipients
+                ->where('type', 'cc')
+                ->map(fn ($r) => ['email' => $r->email, 'name' => $r->name])
+                ->toArray(),
+        ];
+
+        $draft->delete();
+
+        return $this->sendMessage($account, $data);
+    }
 }

@@ -21,6 +21,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('email-accounts/{account}/messages', [MessageController::class, 'index']);
     Route::get('email-accounts/{account}/messages/{uid}', [MessageController::class, 'show']);
     Route::post('email-accounts/{account}/messages/send', [MessageController::class, 'send']);
+    Route::post('email-accounts/{account}/messages/{uid}/reply', [MessageController::class, 'reply']);
+    Route::post('email-accounts/{account}/messages/{uid}/reply-all', [MessageController::class, 'replyAll']);
+    Route::post('email-accounts/{account}/messages/{uid}/forward', [MessageController::class, 'forward']);
+    Route::post('email-accounts/{account}/drafts', [MessageController::class, 'saveDraft']);
+    Route::put('email-accounts/{account}/drafts/{message}', [MessageController::class, 'updateDraft']);
+    Route::delete('email-accounts/{account}/drafts/{message}', [MessageController::class, 'destroyDraft']);
+    Route::post('email-accounts/{account}/drafts/{message}/send', [MessageController::class, 'sendDraft']);
     Route::post('email-accounts/{account}/sync', [SyncController::class, 'syncAccount']);
     Route::get('email-accounts/{account}/sync/status', [SyncController::class, 'status']);
 });
