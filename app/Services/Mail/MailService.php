@@ -4,6 +4,7 @@ namespace App\Services\Mail;
 
 use App\Models\EmailAccount;
 use App\Models\Folder;
+use Illuminate\Support\Facades\Log;
 
 class MailService
 {
@@ -34,5 +35,29 @@ class MailService
         $client = new ImapClient($account->getImapConfig());
 
         return $client->getMessage($folder->imap_name, $uid);
+    }
+
+    public function persistMessages(
+        EmailAccount $account,
+        Folder $folder,
+        array $rawMessages
+    ): array {
+        $persistence = new MessagePersistenceService();
+        $persisted = [];
+
+        foreach ($rawMessages as $raw) {
+            try {
+                $persisted[] = $persistence->persist($account, $folder, $raw);
+            } catch (\Exception $e) {
+                Log::error('Failed to persist message', [
+                    'account_id' => $account->id,
+                    'folder' => $folder->imap_name,
+                    'uid' => $raw['uid'] ?? 'unknown',
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $persisted;
     }
 }
