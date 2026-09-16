@@ -1,12 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useMessagesStore } from '@/stores/messages'
 
-const props = defineProps<{
-  accountId: number | null
-  folderId: number | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    accountId: number | null
+    folderId: number | null
+    showSearch?: boolean
+  }>(),
+  { showSearch: false },
+)
 
 const messages = useMessagesStore()
+
+const displayMessages = computed(() =>
+  props.showSearch && messages.searchResults.length ? messages.searchResults : messages.messages,
+)
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -39,7 +48,7 @@ async function toggleStar(uid: string) {
     </div>
 
     <div
-      v-else-if="messages.messages.length === 0"
+      v-else-if="displayMessages.length === 0"
       class="flex h-full items-center justify-center text-gray-500 text-sm"
     >
       No messages
@@ -47,7 +56,7 @@ async function toggleStar(uid: string) {
 
     <ul v-else class="divide-y divide-gray-800">
       <li
-        v-for="msg in messages.messages"
+        v-for="msg in displayMessages"
         :key="msg.id"
         @click="selectMessage(msg.imap_uid)"
         class="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-gray-800/60"

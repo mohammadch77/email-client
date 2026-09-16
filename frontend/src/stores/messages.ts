@@ -43,6 +43,9 @@ export const useMessagesStore = defineStore('messages', () => {
   const currentPage = ref(1)
   const lastPage = ref(1)
   const total = ref(0)
+  const searchResults = ref<Message[]>([])
+  const searching = ref(false)
+  const searchQuery = ref('')
 
   async function fetchMessages(accountId: number, folderId: number, page = 1) {
     loading.value = true
@@ -104,6 +107,24 @@ export const useMessagesStore = defineStore('messages', () => {
     selectedMessage.value = null
   }
 
+  async function search(accountId: number, query: string, filters: Record<string, unknown> = {}) {
+    searching.value = true
+    searchQuery.value = query
+    try {
+      const res = await client.get(`/email-accounts/${accountId}/messages/search`, {
+        params: { q: query, ...filters, limit: 50 },
+      })
+      searchResults.value = res.data.data.data ?? res.data.data
+    } finally {
+      searching.value = false
+    }
+  }
+
+  function clearSearch() {
+    searchResults.value = []
+    searchQuery.value = ''
+  }
+
   return {
     messages,
     selectedMessage,
@@ -112,11 +133,16 @@ export const useMessagesStore = defineStore('messages', () => {
     currentPage,
     lastPage,
     total,
+    searchResults,
+    searching,
+    searchQuery,
     fetchMessages,
     fetchMessage,
     markRead,
     markUnread,
     toggleStar,
     clearSelected,
+    search,
+    clearSearch,
   }
 })

@@ -37,10 +37,27 @@ onMounted(() => loadMessages())
         :class="messages.selectedMessage ? 'w-2/5' : 'w-full'"
         class="flex flex-col overflow-y-auto border-r border-gray-800"
       >
-        <MessageList class="flex-1" :account-id="accountId" :folder-id="folderId" />
+        <div
+          v-if="messages.searchQuery"
+          class="px-4 py-2 bg-blue-900/30 border-b border-blue-800 text-sm text-blue-300 flex items-center justify-between shrink-0"
+        >
+          <span>
+            Search results for "{{ messages.searchQuery }}" ({{ messages.searchResults.length }} found)
+          </span>
+          <button @click="messages.clearSearch()" class="text-blue-400 hover:text-white">
+            Clear search
+          </button>
+        </div>
+
+        <MessageList
+          class="flex-1"
+          :account-id="accountId"
+          :folder-id="folderId"
+          :show-search="!!messages.searchQuery"
+        />
 
         <div
-          v-if="!messages.loading && messages.messages.length > 0"
+          v-if="!messages.loading && !messages.searchQuery && messages.messages.length > 0"
           class="flex items-center justify-between border-t border-gray-800 px-4 py-2 text-sm text-gray-400"
         >
           <span>Page {{ messages.currentPage }} of {{ messages.lastPage }}</span>
