@@ -57,6 +57,17 @@ const sortedFolders = computed(() =>
       </li>
     </ul>
 
+    <!-- Accounts link -->
+    <div class="px-2 py-1 border-t border-gray-800">
+      <RouterLink
+        to="/accounts"
+        class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition w-full"
+        active-class="bg-gray-800 text-white"
+      >
+        ⚙️ Manage Accounts
+      </RouterLink>
+    </div>
+
     <!-- Sync status -->
     <div class="p-3 border-t border-gray-800 text-xs text-gray-500">
       <span v-if="accounts.activeAccount?.last_synced_at">
