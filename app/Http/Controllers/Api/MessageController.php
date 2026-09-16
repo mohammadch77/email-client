@@ -36,6 +36,40 @@ class MessageController extends ApiController
         return $this->successResponse($messages);
     }
 
+    public function search(Request $request, EmailAccount $account): JsonResponse
+    {
+        abort_if($account->user_id !== $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:255',
+            'folder_id' => 'nullable|integer',
+            'is_read' => 'nullable|boolean',
+            'is_starred' => 'nullable|boolean',
+            'from_email' => 'nullable|email',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'include_drafts' => 'nullable|boolean',
+            'limit' => 'nullable|integer|min:1|max:100',
+            'page' => 'nullable|integer|min:1',
+        ]);
+
+        if (empty(array_filter($request->only([
+            'q', 'folder_id', 'is_read', 'is_starred',
+            'from_email', 'from_date', 'to_date',
+        ])))) {
+            return $this->errorResponse('Provide at least one search filter', 422);
+        }
+
+        $results = app(MailService::class)->searchMessages(
+            $account,
+            $validated,
+            $validated['limit'] ?? 50,
+            $validated['page'] ?? 1
+        );
+
+        return $this->successResponse($results);
+    }
+
     public function show(Request $request, EmailAccount $account, int $uid): JsonResponse
     {
         abort_if($account->user_id !== $request->user()->id, 403);

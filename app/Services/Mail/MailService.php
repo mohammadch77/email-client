@@ -40,6 +40,62 @@ class MailService
         return $client->getMessage($folder->imap_name, $uid);
     }
 
+    public function searchMessages(
+        EmailAccount $account,
+        array $filters,
+        int $limit = 50,
+        int $page = 1
+    ): array {
+        $query = Message::where('email_account_id', $account->id);
+
+        if (! empty($filters['q'])) {
+            $query->whereFullText(
+                ['subject', 'body_text', 'from_email'],
+                $filters['q']
+            );
+        }
+
+        if (! empty($filters['folder_id'])) {
+            $query->where('folder_id', $filters['folder_id']);
+        }
+
+        if (isset($filters['is_read'])) {
+            $query->where('is_read', (bool) $filters['is_read']);
+        }
+
+        if (isset($filters['is_starred'])) {
+            $query->where('is_starred', (bool) $filters['is_starred']);
+        }
+
+        if (! empty($filters['from_date'])) {
+            $query->where('received_at', '>=', $filters['from_date']);
+        }
+        if (! empty($filters['to_date'])) {
+            $query->where('received_at', '<=', $filters['to_date']);
+        }
+
+        if (! empty($filters['from_email'])) {
+            $query->where('from_email', 'like', '%'.$filters['from_email'].'%');
+        }
+
+        if (empty($filters['include_drafts'])) {
+            $query->where('status', '!=', 'draft');
+        }
+
+        $results = $query
+            ->with(['folder', 'recipients'])
+            ->orderBy('received_at', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+
+        return [
+            'data' => $results->items(),
+            'total' => $results->total(),
+            'per_page' => $results->perPage(),
+            'current_page' => $results->currentPage(),
+            'last_page' => $results->lastPage(),
+        ];
+    }
+
     public function persistMessages(
         EmailAccount $account,
         Folder $folder,

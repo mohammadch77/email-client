@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('email-accounts/{account}/folders', [FolderController::class, 'index']);
     Route::post('email-accounts/{account}/folders/sync', [FolderController::class, 'sync']);
     Route::get('email-accounts/{account}/messages', [MessageController::class, 'index']);
+    Route::get('email-accounts/{account}/messages/search', [MessageController::class, 'search']);
     Route::get('email-accounts/{account}/messages/{uid}', [MessageController::class, 'show']);
     Route::post('email-accounts/{account}/messages/send', [MessageController::class, 'send']);
     Route::post('email-accounts/{account}/messages/{uid}/reply', [MessageController::class, 'reply']);
