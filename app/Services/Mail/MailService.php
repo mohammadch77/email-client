@@ -2,8 +2,10 @@
 
 namespace App\Services\Mail;
 
+use App\Jobs\SendEmailJob;
 use App\Models\EmailAccount;
 use App\Models\Folder;
+use App\Models\Message;
 use Illuminate\Support\Facades\Log;
 
 class MailService
@@ -59,5 +61,60 @@ class MailService
         }
 
         return $persisted;
+    }
+
+    public function sendMessage(EmailAccount $account, array $data): Message
+    {
+        $sentFolder = $account->folders()
+            ->where('type', 'sent')
+            ->first();
+
+        if (! $sentFolder) {
+            $sentFolder = $account->folders()->create([
+                'name' => 'Sent',
+                'type' => 'sent',
+                'imap_name' => 'Sent',
+            ]);
+        }
+
+        $message = Message::create([
+            'email_account_id' => $account->id,
+            'folder_id' => $sentFolder->id,
+            'from_email' => $account->email,
+            'from_name' => $account->display_name,
+            'subject' => $data['subject'] ?? null,
+            'body_html' => $data['body_html'] ?? null,
+            'body_text' => $data['body_text'] ?? null,
+            'in_reply_to' => $data['in_reply_to'] ?? null,
+            'references' => $data['references'] ?? null,
+            'status' => 'sending',
+            'sent_at' => now(),
+        ]);
+
+        foreach (($data['to'] ?? []) as $r) {
+            $message->recipients()->create([
+                'type' => 'to',
+                'email' => $r['email'],
+                'name' => $r['name'] ?? null,
+            ]);
+        }
+        foreach (($data['cc'] ?? []) as $r) {
+            $message->recipients()->create([
+                'type' => 'cc',
+                'email' => $r['email'],
+                'name' => $r['name'] ?? null,
+            ]);
+        }
+        foreach (($data['bcc'] ?? []) as $r) {
+            $message->recipients()->create([
+                'type' => 'bcc',
+                'email' => $r['email'],
+                'name' => $r['name'] ?? null,
+            ]);
+        }
+
+        SendEmailJob::dispatch($message->id);
+
+        return $message;
     }
 }

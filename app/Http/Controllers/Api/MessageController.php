@@ -55,4 +55,28 @@ class MessageController extends ApiController
             return $this->errorResponse('Message not found', 404);
         }
     }
+
+    public function send(Request $request, EmailAccount $account): JsonResponse
+    {
+        abort_if($account->user_id !== $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'to' => 'required|array|min:1',
+            'to.*.email' => 'required|email',
+            'to.*.name' => 'nullable|string',
+            'cc' => 'nullable|array',
+            'cc.*.email' => 'required_with:cc|email',
+            'bcc' => 'nullable|array',
+            'bcc.*.email' => 'required_with:bcc|email',
+            'subject' => 'nullable|string|max:500',
+            'body_html' => 'nullable|string',
+            'body_text' => 'nullable|string',
+            'in_reply_to' => 'nullable|string',
+            'references' => 'nullable|string',
+        ]);
+
+        $message = app(MailService::class)->sendMessage($account, $validated);
+
+        return $this->successResponse($message, 'Message queued', 202);
+    }
 }
