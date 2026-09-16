@@ -109,6 +109,47 @@ class ImapClient
         return $result;
     }
 
+    public function getMessagesSinceUid(string $folderName, int $sinceUid): array
+    {
+        $this->connect();
+        $folder = $this->client->getFolder($folderName);
+
+        if ($sinceUid === 0) {
+            $messages = $folder->query()
+                ->all()
+                ->setFetchOrder('desc')
+                ->limit(50)
+                ->get();
+        } else {
+            $messages = $folder->query()
+                ->uid()
+                ->since(date('d-M-Y', strtotime('-30 days')))
+                ->setFetchOrder('asc')
+                ->get()
+                ->filter(fn ($m) => $m->getUid() > $sinceUid);
+        }
+
+        $result = [];
+        foreach ($messages as $msg) {
+            $result[] = [
+                'uid' => $msg->getUid(),
+                'message_id' => $msg->getMessageId() ?? '',
+                'in_reply_to' => $msg->getInReplyTo() ?? '',
+                'references' => $msg->getReferences() ?? '',
+                'subject' => (string) ($msg->getSubject() ?? ''),
+                'from_email' => $msg->getFrom()[0]->mail ?? '',
+                'from_name' => $msg->getFrom()[0]->personal ?? '',
+                'date' => $msg->getDate()?->toDateTimeString(),
+                'is_read' => $msg->getFlags()->contains('Seen'),
+                'has_attachments' => $msg->hasAttachments(),
+            ];
+        }
+
+        $this->disconnect();
+
+        return $result;
+    }
+
     public function getMessage(string $folderName, int $uid): array
     {
         $this->connect();
