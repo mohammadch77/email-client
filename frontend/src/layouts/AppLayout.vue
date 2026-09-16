@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAccountsStore } from '@/stores/accounts'
 import SidebarNav from '@/components/SidebarNav.vue'
 import TopBar from '@/components/TopBar.vue'
+import ComposeModal from '@/components/ComposeModal.vue'
 
 const auth = useAuthStore()
 const accounts = useAccountsStore()
@@ -23,5 +24,6 @@ onMounted(async () => {
         <RouterView />
       </main>
     </div>
+    <ComposeModal />
   </div>
 </template>

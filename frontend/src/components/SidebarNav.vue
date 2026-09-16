@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAccountsStore } from '@/stores/accounts'
+import { useComposeStore } from '@/stores/compose'
 
 const accounts = useAccountsStore()
+const compose = useComposeStore()
 
 const folderOrder = ['inbox', 'starred', 'sent', 'drafts', 'archive', 'spam', 'trash', 'custom']
 
@@ -31,6 +33,7 @@ const sortedFolders = computed(() =>
     <!-- Compose button -->
     <div class="p-3">
       <button
+        @click="compose.openNew()"
         class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 text-sm font-medium transition"
       >
         + Compose

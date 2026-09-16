@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useMessagesStore } from '@/stores/messages'
+import { useComposeStore } from '@/stores/compose'
 
 const messages = useMessagesStore()
+const compose = useComposeStore()
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
@@ -46,13 +48,40 @@ function formatDate(dateStr: string | null): string {
         </div>
 
         <div class="mt-3 flex gap-2">
-          <button class="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700">
+          <button
+            class="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700"
+            @click="
+              compose.openReply(
+                messages.selectedMessage!.imap_uid,
+                messages.selectedMessage!.from_email,
+                messages.selectedMessage!.subject ?? '',
+              )
+            "
+          >
             Reply
           </button>
-          <button class="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700">
+          <button
+            class="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700"
+            @click="
+              compose.openReplyAll(
+                messages.selectedMessage!.imap_uid,
+                messages.selectedMessage!.from_email,
+                messages
+                  .selectedMessage!.recipients?.filter((r) => r.type === 'cc')
+                  .map((r) => r.email)
+                  .join(', ') ?? '',
+                messages.selectedMessage!.subject ?? '',
+              )
+            "
+          >
             Reply All
           </button>
-          <button class="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700">
+          <button
+            class="rounded bg-gray-800 px-3 py-1 text-sm text-white hover:bg-gray-700"
+            @click="
+              compose.openForward(messages.selectedMessage!.imap_uid, messages.selectedMessage!.subject ?? '')
+            "
+          >
             Forward
           </button>
           <button class="rounded bg-red-900/50 px-3 py-1 text-sm text-red-300 hover:bg-red-900">
