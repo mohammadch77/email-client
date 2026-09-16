@@ -194,4 +194,107 @@ class MessageController extends ApiController
 
         return $this->successResponse($result, 'Draft queued', 202);
     }
+
+    private function findMessage(EmailAccount $account, int $uid): Message
+    {
+        return Message::where('email_account_id', $account->id)
+            ->where('imap_uid', $uid)
+            ->firstOrFail();
+    }
+
+    private function authorizeAccount(Request $request, EmailAccount $account): void
+    {
+        if ($account->user_id !== $request->user()->id) {
+            abort(403);
+        }
+    }
+
+    public function markRead(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->markAsRead($message);
+
+        return $this->successResponse(null, 'Marked read');
+    }
+
+    public function markUnread(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->markAsUnread($message);
+
+        return $this->successResponse(null, 'Marked unread');
+    }
+
+    public function star(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->star($message);
+
+        return $this->successResponse(null, 'Starred');
+    }
+
+    public function unstar(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->unstar($message);
+
+        return $this->successResponse(null, 'Unstarred');
+    }
+
+    public function move(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+
+        $validated = $request->validate([
+            'folder_id' => 'required|integer',
+        ]);
+
+        $folder = Folder::where('id', $validated['folder_id'])
+            ->where('email_account_id', $account->id)
+            ->firstOrFail();
+
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->moveToFolder($message, $folder);
+
+        return $this->successResponse(null, 'Moved');
+    }
+
+    public function archive(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->archive($message);
+
+        return $this->successResponse(null, 'Archived');
+    }
+
+    public function destroy(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->delete($message);
+
+        return $this->successResponse(null, 'Deleted');
+    }
+
+    public function restore(Request $request, EmailAccount $account, int $uid): JsonResponse
+    {
+        $this->authorizeAccount($request, $account);
+        $message = $this->findMessage($account, $uid);
+
+        app(MailService::class)->restore($message);
+
+        return $this->successResponse(null, 'Restored');
+    }
 }

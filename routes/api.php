@@ -28,6 +28,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('email-accounts/{account}/drafts/{message}', [MessageController::class, 'updateDraft']);
     Route::delete('email-accounts/{account}/drafts/{message}', [MessageController::class, 'destroyDraft']);
     Route::post('email-accounts/{account}/drafts/{message}/send', [MessageController::class, 'sendDraft']);
+    Route::post('email-accounts/{account}/messages/{uid}/read', [MessageController::class, 'markRead']);
+    Route::post('email-accounts/{account}/messages/{uid}/unread', [MessageController::class, 'markUnread']);
+    Route::post('email-accounts/{account}/messages/{uid}/star', [MessageController::class, 'star']);
+    Route::post('email-accounts/{account}/messages/{uid}/unstar', [MessageController::class, 'unstar']);
+    Route::post('email-accounts/{account}/messages/{uid}/move', [MessageController::class, 'move']);
+    Route::post('email-accounts/{account}/messages/{uid}/archive', [MessageController::class, 'archive']);
+    Route::delete('email-accounts/{account}/messages/{uid}', [MessageController::class, 'destroy']);
+    Route::post('email-accounts/{account}/messages/{uid}/restore', [MessageController::class, 'restore']);
     Route::post('email-accounts/{account}/sync', [SyncController::class, 'syncAccount']);
     Route::get('email-accounts/{account}/sync/status', [SyncController::class, 'status']);
 });

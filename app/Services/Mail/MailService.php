@@ -2,6 +2,7 @@
 
 namespace App\Services\Mail;
 
+use App\Jobs\MarkMessageFlagJob;
 use App\Jobs\SendEmailJob;
 use App\Models\EmailAccount;
 use App\Models\Folder;
@@ -283,5 +284,90 @@ class MailService
         $draft->delete();
 
         return $this->sendMessage($account, $data);
+    }
+
+    public function markAsRead(Message $message): void
+    {
+        $message->update(['is_read' => true]);
+        MarkMessageFlagJob::dispatch($message->id, 'read', true);
+    }
+
+    public function markAsUnread(Message $message): void
+    {
+        $message->update(['is_read' => false]);
+        MarkMessageFlagJob::dispatch($message->id, 'read', false);
+    }
+
+    public function star(Message $message): void
+    {
+        $message->update(['is_starred' => true]);
+    }
+
+    public function unstar(Message $message): void
+    {
+        $message->update(['is_starred' => false]);
+    }
+
+    public function moveToFolder(Message $message, Folder $targetFolder): void
+    {
+        $oldFolder = $message->folder;
+        $message->update(['folder_id' => $targetFolder->id]);
+
+        $this->updateFolderCounts($oldFolder);
+        $this->updateFolderCounts($targetFolder);
+    }
+
+    public function archive(Message $message): void
+    {
+        $archiveFolder = $message->emailAccount
+            ->folders()->where('type', 'archive')->first();
+
+        if (! $archiveFolder) {
+            $archiveFolder = $message->emailAccount->folders()->create([
+                'name' => 'Archive',
+                'type' => 'archive',
+                'imap_name' => 'Archive',
+            ]);
+        }
+
+        $this->moveToFolder($message, $archiveFolder);
+    }
+
+    public function delete(Message $message): void
+    {
+        if ($message->folder->type === 'trash') {
+            $message->delete();
+
+            return;
+        }
+
+        $trashFolder = $message->emailAccount
+            ->folders()->where('type', 'trash')->first();
+
+        if (! $trashFolder) {
+            $trashFolder = $message->emailAccount->folders()->create([
+                'name' => 'Trash',
+                'type' => 'trash',
+                'imap_name' => 'Trash',
+            ]);
+        }
+
+        $this->moveToFolder($message, $trashFolder);
+    }
+
+    public function restore(Message $message): void
+    {
+        $inbox = $message->emailAccount
+            ->folders()->where('type', 'inbox')->firstOrFail();
+
+        $this->moveToFolder($message, $inbox);
+    }
+
+    private function updateFolderCounts(Folder $folder): void
+    {
+        $folder->update([
+            'total_count' => $folder->messages()->count(),
+            'unread_count' => $folder->messages()->where('is_read', false)->count(),
+        ]);
     }
 }
