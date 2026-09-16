@@ -57,4 +57,23 @@ class ImapClient
     {
         return $this->client;
     }
+
+    public function getFolders(): array
+    {
+        $this->connect();
+        $folders = $this->client->getFolders(false);
+        $result = [];
+
+        foreach ($folders as $folder) {
+            $result[] = [
+                'name' => $folder->name,
+                'imap_name' => $folder->full_name ?? $folder->name,
+                'delimiter' => $folder->delimiter ?? '/',
+            ];
+        }
+
+        $this->disconnect();
+
+        return $result;
+    }
 }

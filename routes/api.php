@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmailAccountController;
+use App\Http\Controllers\Api\FolderController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -13,4 +14,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('email-accounts', EmailAccountController::class);
     Route::post('email-accounts/{account}/test-connection', [EmailAccountController::class, 'testConnection']);
+    Route::get('email-accounts/{account}/folders', [FolderController::class, 'index']);
+    Route::post('email-accounts/{account}/folders/sync', [FolderController::class, 'sync']);
 });

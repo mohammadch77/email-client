@@ -12,4 +12,12 @@ class MailService
 
         return $client->testConnection();
     }
+
+    public function syncFolders(EmailAccount $account): array
+    {
+        $imapClient = new ImapClient($account->getImapConfig());
+        $folderSync = new FolderSyncService($imapClient);
+
+        return $folderSync->syncFolders($account);
+    }
 }
