@@ -12,4 +12,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
 
     Route::apiResource('email-accounts', EmailAccountController::class);
+    Route::post('email-accounts/{account}/test-connection', [EmailAccountController::class, 'testConnection']);
 });

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\Mail\ConnectionFailedException;
 use App\Models\EmailAccount;
+use App\Services\Mail\MailService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -90,5 +93,26 @@ class EmailAccountController extends ApiController
         $account->delete();
 
         return $this->successResponse(null, 'Account deleted', 200);
+    }
+
+    public function testConnection(Request $request, EmailAccount $account): JsonResponse
+    {
+        abort_if($account->user_id !== $request->user()->id, 403);
+
+        try {
+            app(MailService::class)->testConnection($account);
+
+            $account->markAsActive();
+
+            return $this->successResponse(null, 'Connection successful', 200);
+        } catch (ConnectionFailedException $e) {
+            $account->markAsError();
+
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Exception $e) {
+            $account->markAsError();
+
+            return $this->errorResponse('Unexpected error', 500);
+        }
     }
 }
