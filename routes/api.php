@@ -21,4 +21,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('email-accounts/{account}/messages', [MessageController::class, 'index']);
     Route::get('email-accounts/{account}/messages/{uid}', [MessageController::class, 'show']);
     Route::post('email-accounts/{account}/sync', [SyncController::class, 'syncAccount']);
+    Route::get('email-accounts/{account}/sync/status', [SyncController::class, 'status']);
 });
