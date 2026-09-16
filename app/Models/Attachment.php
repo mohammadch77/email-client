@@ -10,6 +10,10 @@ class Attachment extends Model
 {
     use HasFactory;
 
+    protected $hidden = [
+        'storage_path',
+    ];
+
     protected $fillable = [
         'message_id',
         'filename',

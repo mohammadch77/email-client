@@ -2,6 +2,7 @@
 
 namespace App\Services\Mail;
 
+use App\Exceptions\Mail\AttachmentNotFoundException;
 use App\Exceptions\Mail\ConnectionFailedException;
 use App\Exceptions\Mail\MessageNotFoundException;
 use Exception;
@@ -204,5 +205,45 @@ class ImapClient
         $this->disconnect();
 
         return $result;
+    }
+
+    public function downloadAttachment(string $folderName, int $uid, string $partNumber): array
+    {
+        $this->connect();
+        $folder = $this->client->getFolder($folderName);
+
+        $msg = $folder->query()
+            ->uid($uid)
+            ->setFetchBody(true)
+            ->first();
+
+        if (! $msg) {
+            $this->disconnect();
+            throw new MessageNotFoundException("Message UID $uid not found");
+        }
+
+        $attachments = $msg->getAttachments();
+        $target = null;
+
+        foreach ($attachments as $att) {
+            if ((string) $att->getPartNumber() === (string) $partNumber) {
+                $target = $att;
+                break;
+            }
+        }
+
+        if (! $target) {
+            $this->disconnect();
+            throw new AttachmentNotFoundException("Attachment part $partNumber not found");
+        }
+
+        $this->disconnect();
+
+        return [
+            'filename' => $target->getName() ?? 'attachment',
+            'mime_type' => $target->getMimeType() ?? 'application/octet-stream',
+            'size' => $target->getSize() ?? 0,
+            'content' => $target->getContent(),
+        ];
     }
 }

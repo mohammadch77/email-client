@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmailAccountController;
 use App\Http\Controllers\Api\FolderController;
@@ -37,6 +38,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('email-accounts/{account}/messages/{uid}/archive', [MessageController::class, 'archive']);
     Route::delete('email-accounts/{account}/messages/{uid}', [MessageController::class, 'destroy']);
     Route::post('email-accounts/{account}/messages/{uid}/restore', [MessageController::class, 'restore']);
+    Route::get('email-accounts/{account}/messages/{uid}/attachments', [AttachmentController::class, 'index']);
+    Route::get('email-accounts/{account}/messages/{uid}/attachments/{attachment}', [AttachmentController::class, 'download']);
     Route::post('email-accounts/{account}/sync', [SyncController::class, 'syncAccount']);
     Route::get('email-accounts/{account}/sync/status', [SyncController::class, 'status']);
 });
