@@ -27,12 +27,14 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-async function selectMessage(uid: string) {
+async function selectMessage(msg: { imap_uid: string | null }) {
   if (!props.accountId) return
-  await Promise.all([
-    messages.fetchMessage(props.accountId, uid),
-    messages.markRead(props.accountId, uid),
-  ])
+  if (msg.imap_uid) {
+    await Promise.all([
+      messages.fetchMessage(props.accountId, msg.imap_uid),
+      messages.markRead(props.accountId, msg.imap_uid),
+    ])
+  }
 }
 
 async function toggleStar(uid: string) {
@@ -58,7 +60,7 @@ async function toggleStar(uid: string) {
       <li
         v-for="msg in displayMessages"
         :key="msg.id"
-        @click="selectMessage(msg.imap_uid)"
+        @click="selectMessage(msg)"
         class="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-gray-800/60"
         :class="msg.is_read ? 'text-gray-400' : 'bg-gray-800/30 text-white'"
       >

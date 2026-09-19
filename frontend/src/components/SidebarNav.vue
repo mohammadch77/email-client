@@ -1,10 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAccountsStore } from '@/stores/accounts'
+import { useRouter, useRoute } from 'vue-router'
+import { useAccountsStore, type Folder } from '@/stores/accounts'
 import { useComposeStore } from '@/stores/compose'
 
 const accounts = useAccountsStore()
 const compose = useComposeStore()
+const router = useRouter()
+const route = useRoute()
+
+function selectFolder(folder: Folder) {
+  router.push({
+    path: '/inbox',
+    query: {
+      folder_id: folder.id,
+      account_id: accounts.activeAccount?.id,
+    },
+  })
+}
 
 const folderOrder = ['inbox', 'starred', 'sent', 'drafts', 'archive', 'spam', 'trash', 'custom']
 
@@ -43,20 +56,25 @@ const sortedFolders = computed(() =>
     <!-- Folder list -->
     <ul class="flex-1 px-2">
       <li v-for="folder in sortedFolders" :key="folder.id">
-        <RouterLink
-          :to="`/inbox?folder=${folder.id}&account=${accounts.activeAccount?.id}`"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 transition w-full mb-0.5"
-          active-class="bg-gray-800 text-white"
+        <button
+          @click="selectFolder(folder)"
+          :class="[
+            'flex items-center gap-2 px-3 py-2 rounded-lg',
+            'text-sm hover:bg-gray-800 transition w-full mb-0.5',
+            Number(route.query.folder_id) === folder.id
+              ? 'bg-gray-800 text-white'
+              : 'text-gray-300',
+          ]"
         >
           <span>{{ folderIcons[folder.type] ?? '📁' }}</span>
-          <span class="flex-1 truncate">{{ folder.name }}</span>
+          <span class="flex-1 truncate text-left">{{ folder.name }}</span>
           <span
             v-if="folder.unread_count > 0"
             class="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center"
           >
             {{ folder.unread_count }}
           </span>
-        </RouterLink>
+        </button>
       </li>
     </ul>
 

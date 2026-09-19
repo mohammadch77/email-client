@@ -28,13 +28,75 @@ class MailService
 
     public function getMessages(EmailAccount $account, Folder $folder, int $limit = 50, int $page = 1): array
     {
-        $client = new ImapClient($account->getImapConfig());
+        $messages = Message::where('email_account_id', $account->id)
+            ->where('folder_id', $folder->id)
+            ->with(['recipients'])
+            ->orderBy('received_at', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
 
-        return $client->getMessages($folder->imap_name, $limit, $page);
+        return $messages->map(fn ($m) => [
+            'id'              => $m->id,
+            'imap_uid'        => $m->imap_uid,
+            'subject'         => $m->subject,
+            'from_email'      => $m->from_email,
+            'from_name'       => $m->from_name,
+            'is_read'         => $m->is_read,
+            'is_starred'      => $m->is_starred,
+            'has_attachments' => $m->has_attachments,
+            'received_at'     => $m->received_at?->toDateTimeString(),
+            'sent_at'         => $m->sent_at?->toDateTimeString(),
+            'status'          => $m->status,
+            'folder_id'       => $m->folder_id,
+        ])->toArray();
     }
 
     public function getMessage(EmailAccount $account, Folder $folder, int $uid): array
     {
+        $message = Message::where('email_account_id', $account->id)
+            ->where('folder_id', $folder->id)
+            ->where('imap_uid', $uid)
+            ->with(['recipients', 'attachments'])
+            ->first();
+
+        if ($message) {
+            return [
+                'uid'         => $message->imap_uid,
+                'message_id'  => $message->message_id_header,
+                'in_reply_to' => $message->in_reply_to,
+                'references'  => $message->references,
+                'subject'     => $message->subject,
+                'from_email'  => $message->from_email,
+                'from_name'   => $message->from_name,
+                'to'          => $message->recipients
+                    ->where('type', 'to')
+                    ->map(fn ($r) => [
+                        'email' => $r->email,
+                        'name'  => $r->name,
+                    ])->values()->toArray(),
+                'cc' => $message->recipients
+                    ->where('type', 'cc')
+                    ->map(fn ($r) => [
+                        'email' => $r->email,
+                        'name'  => $r->name,
+                    ])->values()->toArray(),
+                'body_text'   => $message->body_text,
+                'body_html'   => $message->body_html,
+                'date'        => $message->received_at?->toDateTimeString(),
+                'is_read'     => $message->is_read,
+                'attachments' => $message->attachments->map(fn ($a) => [
+                    'id'          => $a->id,
+                    'filename'    => $a->filename,
+                    'mime_type'   => $a->mime_type,
+                    'size'        => $a->size,
+                    'part_number' => $a->imap_part_number,
+                ])->toArray(),
+                'folder_id'   => $message->folder_id,
+                'status'      => $message->status,
+                'is_starred'  => $message->is_starred,
+                'received_at' => $message->received_at?->toDateTimeString(),
+            ];
+        }
+
         $client = new ImapClient($account->getImapConfig());
 
         return $client->getMessage($folder->imap_name, $uid);

@@ -33,8 +33,8 @@ class MessagePersistenceService
                     'in_reply_to' => $rawMessage['in_reply_to'] ?? null,
                     'references' => $rawMessage['references'] ?? null,
                     'from_email' => $rawMessage['from_email'],
-                    'from_name' => $rawMessage['from_name'] ?? null,
-                    'subject' => $rawMessage['subject'] ?? null,
+                    'from_name' => $this->decodeMimeHeader($rawMessage['from_name'] ?? null),
+                    'subject' => $this->decodeMimeHeader($rawMessage['subject'] ?? null),
                     'body_text' => $rawMessage['body_text'] ?? null,
                     'body_html' => $rawMessage['body_html'] ?? null,
                     'status' => 'received',
@@ -89,6 +89,57 @@ class MessagePersistenceService
             'subject' => $subject,
             'last_message_at' => $raw['date'] ?? now(),
         ]);
+    }
+
+    private function decodeMimeHeader(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if (strpos($value, '=?') === false) {
+            return $value;
+        }
+
+        try {
+            $decoded = mb_decode_mimeheader($value);
+            if ($decoded && $decoded !== $value) {
+                return $decoded;
+            }
+        } catch (\Exception $e) {
+        }
+
+        try {
+            $result = preg_replace_callback(
+                '/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/',
+                function ($matches) {
+                    $charset = $matches[1];
+                    $encoding = strtoupper($matches[2]);
+                    $text = $matches[3];
+
+                    if ($encoding === 'B') {
+                        $decoded = base64_decode($text);
+                    } else {
+                        $decoded = quoted_printable_decode(
+                            str_replace('_', ' ', $text)
+                        );
+                    }
+
+                    if (strtoupper($charset) !== 'UTF-8') {
+                        $decoded = mb_convert_encoding(
+                            $decoded, 'UTF-8', $charset
+                        );
+                    }
+
+                    return $decoded;
+                },
+                $value
+            );
+
+            return $result ?? $value;
+        } catch (\Exception $e) {
+            return $value;
+        }
     }
 
     private function normalizeSubject(string $subject): string
