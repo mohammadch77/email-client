@@ -83,6 +83,19 @@ class ImapClient
     {
         $this->connect();
         $folder = $this->client->getFolder($folderName);
+        if (!$folder) {
+            // Try common alternatives
+            $alternatives = ['INBOX', 'Inbox', 'inbox'];
+            foreach ($alternatives as $alt) {
+                if ($alt === $folderName) continue;
+                $folder = $this->client->getFolder($alt);
+                if ($folder) break;
+            }
+        }
+        if (!$folder) {
+            $this->disconnect();
+            return [];
+        }
 
         $messages = $folder->query()
             ->all()
@@ -99,7 +112,7 @@ class ImapClient
                 'subject' => (string) ($msg->getSubject() ?? ''),
                 'from_email' => $msg->getFrom()[0]->mail ?? '',
                 'from_name' => $msg->getFrom()[0]->personal ?? '',
-                'date' => $msg->getDate()?->toDateTimeString(),
+                'date' => $this->parseDate($msg->getDate()),
                 'is_read' => $msg->getFlags()->contains('Seen'),
                 'has_attachments' => $msg->hasAttachments(),
             ];
@@ -114,40 +127,34 @@ class ImapClient
     {
         $this->connect();
         $folder = $this->client->getFolder($folderName);
-
-        if ($sinceUid === 0) {
-            $messages = $folder->query()
-                ->all()
-                ->setFetchOrder('desc')
-                ->limit(50)
-                ->get();
-        } else {
-            $messages = $folder->query()
-                ->uid()
-                ->since(date('d-M-Y', strtotime('-30 days')))
-                ->setFetchOrder('asc')
-                ->get()
-                ->filter(fn ($m) => $m->getUid() > $sinceUid);
+        if (!$folder) {
+            $this->disconnect();
+            return [];
         }
+
+        $messages = $folder->query()
+            ->all()
+            ->setFetchOrder('asc')
+            ->get();
 
         $result = [];
         foreach ($messages as $msg) {
+            if ($msg->getUid() <= $sinceUid) continue;
             $result[] = [
-                'uid' => $msg->getUid(),
-                'message_id' => $msg->getMessageId() ?? '',
-                'in_reply_to' => $msg->getInReplyTo() ?? '',
-                'references' => $msg->getReferences() ?? '',
-                'subject' => (string) ($msg->getSubject() ?? ''),
-                'from_email' => $msg->getFrom()[0]->mail ?? '',
-                'from_name' => $msg->getFrom()[0]->personal ?? '',
-                'date' => $msg->getDate()?->toDateTimeString(),
-                'is_read' => $msg->getFlags()->contains('Seen'),
+                'uid'             => $msg->getUid(),
+                'message_id'      => $msg->getMessageId() ?? '',
+                'in_reply_to'     => $msg->getInReplyTo() ?? '',
+                'references'      => $msg->getReferences() ?? '',
+                'subject'         => (string)($msg->getSubject() ?? ''),
+                'from_email'      => $msg->getFrom()[0]->mail ?? '',
+                'from_name'       => $msg->getFrom()[0]->personal ?? '',
+                'date'            => $this->parseDate($msg->getDate()),
+                'is_read'         => $msg->getFlags()->contains('Seen'),
                 'has_attachments' => $msg->hasAttachments(),
             ];
         }
 
         $this->disconnect();
-
         return $result;
     }
 
@@ -155,11 +162,25 @@ class ImapClient
     {
         $this->connect();
         $folder = $this->client->getFolder($folderName);
+        if (!$folder) {
+            $this->disconnect();
+            throw new \App\Exceptions\Mail\MessageNotFoundException(
+                "Folder '$folderName' not found"
+            );
+        }
 
-        $msg = $folder->query()
-            ->uid($uid)
+        $msgs = $folder->query()
             ->setFetchBody(true)
-            ->first();
+            ->all()
+            ->get();
+
+        $msg = null;
+        foreach ($msgs as $m) {
+            if ($m->getUid() == $uid) {
+                $msg = $m;
+                break;
+            }
+        }
 
         if (! $msg) {
             $this->disconnect();
@@ -197,7 +218,7 @@ class ImapClient
             'cc' => $cc,
             'body_text' => $msg->getTextBody() ?? '',
             'body_html' => $msg->getHtmlBody() ?? '',
-            'date' => $msg->getDate()?->toDateTimeString(),
+            'date' => $this->parseDate($msg->getDate()),
             'is_read' => $msg->getFlags()->contains('Seen'),
             'attachments' => $attachments,
         ];
@@ -211,11 +232,25 @@ class ImapClient
     {
         $this->connect();
         $folder = $this->client->getFolder($folderName);
+        if (!$folder) {
+            $this->disconnect();
+            throw new \App\Exceptions\Mail\MessageNotFoundException(
+                "Folder '$folderName' not found"
+            );
+        }
 
-        $msg = $folder->query()
-            ->uid($uid)
+        $msgs = $folder->query()
             ->setFetchBody(true)
-            ->first();
+            ->all()
+            ->get();
+
+        $msg = null;
+        foreach ($msgs as $m) {
+            if ($m->getUid() == $uid) {
+                $msg = $m;
+                break;
+            }
+        }
 
         if (! $msg) {
             $this->disconnect();
@@ -245,5 +280,32 @@ class ImapClient
             'size' => $target->getSize() ?? 0,
             'content' => $target->getContent(),
         ];
+    }
+
+    private function parseDate($date): ?string
+    {
+        if (!$date) return null;
+
+        try {
+            // If it's an Attribute object
+            if (method_exists($date, 'first')) {
+                $date = $date->first();
+            }
+            if (method_exists($date, 'getValue')) {
+                $date = $date->getValue();
+            }
+            // If it's a Carbon instance
+            if ($date instanceof \Carbon\Carbon) {
+                return $date->toDateTimeString();
+            }
+            // If it's a string
+            if (is_string($date)) {
+                return \Carbon\Carbon::parse($date)->toDateTimeString();
+            }
+            // Try toString
+            return \Carbon\Carbon::parse((string)$date)->toDateTimeString();
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }

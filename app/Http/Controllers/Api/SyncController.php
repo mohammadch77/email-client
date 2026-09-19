@@ -12,11 +12,17 @@ class SyncController extends ApiController
 {
     public function syncAccount(Request $request, EmailAccount $account): JsonResponse
     {
-        abort_if($account->user_id !== $request->user()->id, 403);
+        if ($account->user_id !== $request->user()->id) {
+            abort(403);
+        }
 
-        SyncEmailAccountJob::dispatch($account->id);
-
-        return $this->successResponse(null, 'Sync started', 202);
+        try {
+            $job = new \App\Jobs\SyncEmailAccountJob($account->id);
+            $job->handle();
+            return $this->successResponse(null, 'Sync completed', 200);
+        } catch (\Exception $e) {
+            return $this->errorResponse('Sync failed: ' . $e->getMessage(), 500);
+        }
     }
 
     public function status(Request $request, EmailAccount $account): JsonResponse
